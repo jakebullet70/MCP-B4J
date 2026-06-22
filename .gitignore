@@ -1,0 +1,19 @@
+# Build output
+**/bin/
+**/obj/
+
+# Rider / Visual Studio
+.idea/
+.vs/
+*.user
+*.suo
+
+# Backups created by the MCP tools (.bak) and editors
+*.bak
+
+# OS noise
+Thumbs.db
+.DS_Store
+
+# Local VS Code workspace state (keep settings.json if you want it shared)
+# .vscode/
