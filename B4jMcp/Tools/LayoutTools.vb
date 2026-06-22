@@ -69,6 +69,41 @@ Namespace Tools
             End Try
         End Function
 
+        <McpServerTool, Description("Clones an existing .bjl layout to a new file in the same folder, round-tripping through the converter to validate the result. Note: this creates the file only — register it in the project's Files via the B4J IDE to use it.")>
+        Public Shared Function B4jCloneLayout(
+            <Description("Full path to the source .bjl layout file")> sourcePath As String,
+            <Description("Name for the new layout (a bare file name; '.bjl' is added if missing)")> newName As String
+        ) As String
+            If Not File.Exists(sourcePath) Then Return $"Error: File not found: {sourcePath}"
+            If Not sourcePath.EndsWith(".bjl", StringComparison.OrdinalIgnoreCase) Then
+                Return "Error: source must have .bjl extension"
+            End If
+            If String.IsNullOrWhiteSpace(newName) Then Return "Error: newName cannot be empty"
+
+            Try
+                Dim dir = Path.GetDirectoryName(sourcePath)
+                If String.IsNullOrEmpty(dir) Then dir = "."
+
+                ' Strip any path components from newName and ensure the .bjl extension.
+                Dim destFileName = Path.GetFileName(newName.Trim())
+                If Not destFileName.EndsWith(".bjl", StringComparison.OrdinalIgnoreCase) Then destFileName &= ".bjl"
+                Dim destPath = Path.Combine(dir, destFileName)
+                If File.Exists(destPath) Then Return $"Error: a layout named '{destFileName}' already exists in {dir}"
+
+                ' Round-trip through the converter so we only write a validated layout.
+                Dim converter = New BalConverter(stripNullRect:=False)
+                Dim json = converter.ConvertBalToJson(dir, Path.GetFileName(sourcePath))
+                Dim jobj = JObject.Parse(json)
+                Using stream = File.Create(destPath)
+                    converter.ConvertJsonToBalInMemory(jobj, stream)
+                End Using
+
+                Return $"OK: cloned {Path.GetFileName(sourcePath)} -> {destFileName} in {dir}. Add it to the project's Files in the B4J IDE to use it."
+            Catch ex As Exception
+                Return $"Error cloning layout: {ex.Message}"
+            End Try
+        End Function
+
         <McpServerTool, Description("Lists all .bjl layout files in a B4J project directory")>
         Public Shared Function B4jListLayouts(
             <Description("Path to the B4J project directory (or .b4j file path)")> projectDir As String

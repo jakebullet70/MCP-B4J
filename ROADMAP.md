@@ -30,12 +30,17 @@ Prioritized feature backlog. Tier 1 is complete; Tier 2/3 are open.
   `b4j_read_project`, plus a missing-library check (referenced libs not found on disk; no false
   positives when no library dirs are configured). → `Models/B4jProject.vb`, `Utils/B4jParser.vb`, `Tools/ProjectTools.vb`
 
-## Tier 3 — polish / future
+## Tier 3 — polish / future ✅ DONE
 
-- [ ] Pass build-config + obfuscate through `b4j_run`.
-- [ ] `b4j_clean` — wipe `Objects/` and force a rebuild.
-- [ ] Cross-platform support — B4J runs on macOS/Linux; the hardcoded `.exe` / `win-x64` blocks it.
-- [ ] Layout scaffolding — create/clone a `.bjl`, or generate a starter view tree.
+- [x] **Build passthrough on `b4j_run`** — `configuration` / `obfuscate` flow into the build step, and
+  `forceBuild` rebuilds even when a jar exists. → `Tools/BuildTools.vb`
+- [x] **`b4j_clean`** — deletes the `Objects/` folder to force a clean rebuild; optional `rebuild`.
+  → `Tools/BuildTools.vb`
+- [x] **`b4j_clone_layout`** — clones a `.bjl` via the converter (validated round-trip).
+  → `Tools/LayoutTools.vb`
+- [x] ~~Cross-platform~~ **Won't do — Windows only.** `B4JBuilder.exe` and the B4J IDE are
+  Windows-only tools, so the server is inherently Windows-only. The earlier OS-aware executable
+  resolution was removed as misleading; tool names are hardcoded to `.exe`.
 
 ## Known follow-ups / tech debt
 

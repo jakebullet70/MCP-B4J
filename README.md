@@ -27,7 +27,8 @@ Exposes tools for compiling and running B4J projects, opening them in the IDE fo
 | Tool | Description |
 |------|-------------|
 | `b4j_build` | Compiles a B4J project via `B4JBuilder.exe`. Returns the full build log and the output `.jar` path on success |
-| `b4j_run` | Runs a compiled B4J project with the configured Java (builds first if no jar exists). Returns the PID + startup output for long-running UI/server apps, or the full output for console apps that exit |
+| `b4j_run` | Runs a compiled B4J project with the configured Java (builds first if no jar exists). Optional `configuration`/`obfuscate` pass through to the build; `forceBuild` rebuilds even if a jar exists. Returns the PID + startup output for long-running UI/server apps, or the full output for console apps that exit |
+| `b4j_clean` | Deletes the project's `Objects` build folder to force a clean rebuild; optionally rebuilds afterwards |
 | `b4j_open_ide` | Opens a project in the B4J IDE (`B4J.exe`) for interactive debugging — breakpoints, step-through and variable inspection that the command-line builder cannot provide. Launches the IDE and returns immediately |
 | `b4j_stop` | Stops a running app (launched by `b4j_run`) by PID — kills the process tree and returns its final output |
 | `b4j_tail_log` | Returns captured stdout/stderr (incl. `Log()`) from a running/exited app; `onlyNew=true` returns just the output since the last tail |
@@ -74,6 +75,7 @@ Exposes tools for compiling and running B4J projects, opening them in the IDE fo
 |------|-------------|
 | `b4j_read_layout` | Converts a binary `.bjl` layout to JSON (LayoutHeader, Variants, Data view-tree) |
 | `b4j_write_layout` | Writes JSON back to `.bjl` (validates structure, creates a `.bak` backup) |
+| `b4j_clone_layout` | Clones an existing `.bjl` to a new file in the same folder, round-tripped through the converter to validate |
 | `b4j_list_layouts` | Lists all `.bjl` files in a project directory |
 
 ---
@@ -146,6 +148,7 @@ Config is stored at `%APPDATA%\mcp-b4j\config.json`. Explicit values set here al
 - `b4j_run` launches `java -jar <jar>` using `javaBin`. UI/JavaFX and Server apps keep running, so the tool returns once it has captured startup output (configurable via `timeoutMs`); the process is left alive. Console apps that exit within the window return their full output and exit code.
 - **Interactive debugging** (breakpoints, step-through, variable inspection, hot code-swap) only exists inside the B4J IDE — it is *not* exposed by `B4JBuilder.exe`. Use `b4j_open_ide` to open the project in `B4J.exe`, then run in debug mode (F5/F8) and set breakpoints there.
 - **In-chat run loop:** for long-running UI/server apps, `b4j_run` returns a PID and leaves the app alive. Use `b4j_tail_log(pid)` to read accumulated `Log()`/stdout output (`onlyNew=true` for just the latest), `b4j_list_processes` to see what's running, and `b4j_stop(pid)` to kill it. Together with `b4j_edit_bas` + `b4j_build` this gives a tight build → run → read-log → edit loop without leaving the assistant.
+- **Windows only.** `B4JBuilder.exe` and the B4J IDE are Windows-only, so this server is too (it ships as a `win-x64` binary). macOS/Linux is not supported.
 
 ---
 

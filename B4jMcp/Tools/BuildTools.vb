@@ -91,7 +91,10 @@ Namespace Tools
         Public Shared Async Function B4jRun(
             <Description("Full path to the .b4j project file")> projectPath As String,
             <Description("Optional arguments passed to the B4J app")> Optional appArgs As String = "",
-            <Description("How long to wait for output before returning while the app is still running, in ms (default 4000)")> Optional timeoutMs As Integer = 4000
+            <Description("How long to wait for output before returning while the app is still running, in ms (default 4000)")> Optional timeoutMs As Integer = 4000,
+            <Description("Build configuration name passed through to the build step (when a build is needed). Leave empty for the default.")> Optional configuration As String = "",
+            <Description("Obfuscate when building (default False)")> Optional obfuscate As Boolean = False,
+            <Description("Force a rebuild before running even if a jar already exists (default False)")> Optional forceBuild As Boolean = False
         ) As Task(Of String)
             If Not File.Exists(projectPath) Then Return $"Error: File not found: {projectPath}"
             If Not projectPath.EndsWith(".b4j", StringComparison.OrdinalIgnoreCase) Then
@@ -102,10 +105,10 @@ Namespace Tools
             Dim baseFolder = Path.GetDirectoryName(projectPath)
             Dim outputName = Path.GetFileNameWithoutExtension(projectPath) & ".jar"
 
-            ' Locate the jar; build if missing.
+            ' Locate the jar; build if missing or a rebuild was requested.
             Dim jarPath = ResolveJarPath(baseFolder, outputName)
-            If jarPath Is Nothing Then
-                Dim buildResult = Await B4jBuild(projectPath)
+            If jarPath Is Nothing OrElse forceBuild Then
+                Dim buildResult = Await B4jBuild(projectPath, configuration, obfuscate)
                 jarPath = ResolveJarPath(baseFolder, outputName)
                 If jarPath Is Nothing Then
                     Return $"No jar found and build did not produce one.{Environment.NewLine}{buildResult}"
@@ -271,6 +274,38 @@ Namespace Tools
             Catch ex As Exception
                 Return $"Error launching B4J IDE: {ex.Message}"
             End Try
+        End Function
+
+        <McpServerTool, Description("Deletes a B4J project's Objects build folder to force a clean rebuild (clears stale generated code/jars). Optionally rebuilds afterwards and returns the build log.")>
+        Public Shared Async Function B4jClean(
+            <Description("Full path to the .b4j project file")> projectPath As String,
+            <Description("If true, run a fresh build after cleaning (default False)")> Optional rebuild As Boolean = False
+        ) As Task(Of String)
+            If Not File.Exists(projectPath) Then Return $"Error: File not found: {projectPath}"
+            If Not projectPath.EndsWith(".b4j", StringComparison.OrdinalIgnoreCase) Then
+                Return "Error: File must have .b4j extension"
+            End If
+
+            Dim baseFolder = Path.GetDirectoryName(projectPath)
+            Dim objectsDir = Path.Combine(baseFolder, "Objects")
+            Dim msg As String
+
+            If Directory.Exists(objectsDir) Then
+                Try
+                    Directory.Delete(objectsDir, recursive:=True)
+                    msg = $"Cleaned: deleted {objectsDir}"
+                Catch ex As Exception
+                    Return $"Error deleting {objectsDir}: {ex.Message} (is the app still running? stop it with b4j_stop first)"
+                End Try
+            Else
+                msg = $"Nothing to clean: {objectsDir} does not exist"
+            End If
+
+            If rebuild Then
+                Dim buildResult = Await B4jBuild(projectPath)
+                Return $"{msg}{Environment.NewLine}{buildResult}"
+            End If
+            Return msg
         End Function
 
         <McpServerTool, Description("Returns the log from the last b4j_build call")>
