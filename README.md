@@ -27,7 +27,7 @@ Exposes tools for compiling and running B4J projects, opening them in the IDE fo
 |------|-------------|
 | `b4j_build` | Compiles a B4J project via `B4JBuilder.exe`. Returns the full build log and the output `.jar` path on success |
 | `b4j_run` | Runs a compiled B4J project with the configured Java (builds first if no jar exists). Returns the PID + startup output for long-running UI/server apps, or the full output for console apps that exit |
-| `b4j_open_ide` | Opens a project in the B4J IDE (`B4J.exe`) for interactive debugging — breakpoints, step-through and variable inspection that the command-line builder cannot provide. Launches the IDE and returns immediately |
+| `b4j_open_ide` | Opens a project in the B4J IDE (`B4J.exe`) for interactive debugging — breakpoints, step-through and variable inspection that the command-line builder cannot provide. Launches the IDE and returns immediately (NEW!)|
 | `b4j_get_build_log` | Returns the log from the last build |
 
 ### Project
