@@ -119,7 +119,26 @@ Namespace Tools
                 If File.Exists(candidate) Then javaExe = candidate
             End If
 
-            Dim runArgs = $"-jar ""{jarPath}"""
+            ' JavaFX/UI apps need the JavaFX modules on the module path; a plain `java -jar` fails with
+            ' "JavaFX runtime components are missing". The B4J JDK ships them at <javaHome>\javafx\lib.
+            Dim runArgs As String = ""
+            Try
+                Dim appType = B4jParser.Parse(projectPath).AppType
+                Dim isUi = appType IsNot Nothing AndAlso
+                           (appType.Equals("JavaFX", StringComparison.OrdinalIgnoreCase) OrElse
+                            appType.Equals("UI", StringComparison.OrdinalIgnoreCase))
+                If isUi AndAlso Not String.IsNullOrEmpty(cfg.JavaBin) Then
+                    Dim javaHome = Path.GetDirectoryName(cfg.JavaBin.TrimEnd("\"c, "/"c))
+                    Dim fxLib = Path.Combine(javaHome, "javafx", "lib")
+                    If Directory.Exists(fxLib) Then
+                        runArgs = $"--module-path ""{fxLib}"" --add-modules javafx.controls,javafx.fxml,javafx.web,javafx.media,javafx.swing "
+                    End If
+                End If
+            Catch
+                ' If app-type detection fails, fall back to a plain launch.
+            End Try
+
+            runArgs &= $"-jar ""{jarPath}"""
             If Not String.IsNullOrEmpty(appArgs) Then runArgs &= " " & appArgs
 
             Try
@@ -133,28 +152,91 @@ Namespace Tools
                     .CreateNoWindow = True
                 }
 
-                Dim output As New System.Text.StringBuilder()
                 Dim proc As New Process() With {.StartInfo = psi}
-                AddHandler proc.OutputDataReceived, Sub(s, e) If e.Data IsNot Nothing Then output.AppendLine(e.Data)
-                AddHandler proc.ErrorDataReceived, Sub(s, e) If e.Data IsNot Nothing Then output.AppendLine(e.Data)
+                proc.EnableRaisingEvents = True
                 proc.Start()
+
+                ' Register so the app can be stopped / tailed after the startup window.
+                Dim app = ProcessRegistry.Register(proc, Path.GetFileNameWithoutExtension(jarPath))
+                AddHandler proc.OutputDataReceived, Sub(s, e) If e.Data IsNot Nothing Then app.Append(e.Data)
+                AddHandler proc.ErrorDataReceived, Sub(s, e) If e.Data IsNot Nothing Then app.Append(e.Data)
+                AddHandler proc.Exited, Sub(s, e)
+                                            app.HasExited = True
+                                            Try
+                                                app.ExitCode = proc.ExitCode
+                                            Catch
+                                            End Try
+                                        End Sub
                 proc.BeginOutputReadLine()
                 proc.BeginErrorReadLine()
 
                 Dim exited = Await Task.Run(Function() proc.WaitForExit(Math.Max(0, timeoutMs)))
 
                 If exited Then
+                    proc.WaitForExit()  ' flush async output buffers
                     Dim code = proc.ExitCode
+                    Dim outText = app.ReadAll()
+                    ProcessRegistry.Remove(app.Pid)
                     proc.Dispose()
-                    Return $"App exited (exit code {code}):{Environment.NewLine}{output.ToString().TrimEnd()}"
+                    Return $"App exited (exit code {code}):{Environment.NewLine}{outText.TrimEnd()}"
                 Else
-                    ' Still running — leave it alive (GUI/server) and report.
+                    ' Still running — leave it alive (GUI/server) and report. Tracked in the registry.
                     Dim pid = proc.Id
-                    Return $"App is running (PID {pid}). Startup output:{Environment.NewLine}{output.ToString().TrimEnd()}"
+                    Return $"App is running (PID {pid}). Use b4j_tail_log({pid}) to read output, b4j_stop({pid}) to stop it.{Environment.NewLine}Startup output:{Environment.NewLine}{app.ReadAll().TrimEnd()}"
                 End If
             Catch ex As Exception
                 Return $"Error launching app: {ex.Message}"
             End Try
+        End Function
+
+        <McpServerTool, Description("Stops a running B4J app previously launched by b4j_run, identified by its process ID. Kills the entire process tree and returns the final captured output.")>
+        Public Shared Function B4jStop(
+            <Description("Process ID returned by b4j_run")> pid As Integer
+        ) As String
+            Dim app As ProcessRegistry.RunningApp = Nothing
+            If Not ProcessRegistry.TryGet(pid, app) Then
+                Return $"Error: No tracked B4J app with PID {pid}. Use b4j_list_processes to see running apps."
+            End If
+            Try
+                If Not app.Proc.HasExited Then
+                    app.Proc.Kill(entireProcessTree:=True)
+                    app.Proc.WaitForExit(5000)
+                End If
+                Dim outText = app.ReadAll()
+                ProcessRegistry.Remove(pid)
+                app.Proc.Dispose()
+                Return $"Stopped PID {pid}.{Environment.NewLine}Final output:{Environment.NewLine}{outText.TrimEnd()}"
+            Catch ex As Exception
+                Return $"Error stopping PID {pid}: {ex.Message}"
+            End Try
+        End Function
+
+        <McpServerTool, Description("Returns captured stdout/stderr (including Log() output) from a B4J app launched by b4j_run. Set onlyNew=true to return only output since the previous tail call.")>
+        Public Shared Function B4jTailLog(
+            <Description("Process ID returned by b4j_run")> pid As Integer,
+            <Description("If true, return only output appended since the last tail call. Default false (full output).")> Optional onlyNew As Boolean = False
+        ) As String
+            Dim app As ProcessRegistry.RunningApp = Nothing
+            If Not ProcessRegistry.TryGet(pid, app) Then
+                Return $"Error: No tracked B4J app with PID {pid}. Use b4j_list_processes to see running apps."
+            End If
+            Dim text = If(onlyNew, app.ReadNew(), app.ReadAll())
+            Dim status = If(app.HasExited, $"exited (code {If(app.ExitCode.HasValue, app.ExitCode.Value.ToString(), "?")})", "running")
+            Return $"PID {pid} [{status}]:{Environment.NewLine}{text.TrimEnd()}"
+        End Function
+
+        <McpServerTool, Description("Lists B4J apps currently tracked (launched via b4j_run), with PID, project name, status, and start time.")>
+        Public Shared Function B4jListProcesses() As String
+            Dim apps = ProcessRegistry.ListApps()
+            If apps.Count = 0 Then Return "No tracked B4J apps. Launch one with b4j_run."
+            Dim list = apps.Select(Function(a) New With {
+                .pid = a.Pid,
+                .project = a.ProjectName,
+                .status = If(a.HasExited, "exited", "running"),
+                .exitCode = If(a.ExitCode.HasValue, CObj(a.ExitCode.Value), Nothing),
+                .startedUtc = a.StartedUtc.ToString("o")
+            })
+            Return JsonConvert.SerializeObject(New With {.count = apps.Count, .processes = list}, Formatting.Indented)
         End Function
 
         <McpServerTool, Description("Opens a B4J project in the B4J IDE (B4J.exe) for interactive debugging. The IDE provides breakpoints, step-through and variable inspection that the command-line builder cannot. Launches the IDE and returns immediately; the IDE stays open.")>

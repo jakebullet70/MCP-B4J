@@ -20,6 +20,7 @@ Exposes tools for compiling and running B4J projects, opening them in the IDE fo
 |------|-------------|
 | `b4j_get_config` | Returns current paths and config sources (auto-detected vs explicit) |
 | `b4j_set_config` | Updates a configuration value |
+| `b4j_doctor` | Verifies `B4JBuilder.exe`, `B4J.exe`, `java.exe` and the libraries folder resolve, reports the Java version, and counts libraries. Run after setup or when builds/runs fail unexpectedly |
 
 ### Build & Run
 
@@ -27,7 +28,10 @@ Exposes tools for compiling and running B4J projects, opening them in the IDE fo
 |------|-------------|
 | `b4j_build` | Compiles a B4J project via `B4JBuilder.exe`. Returns the full build log and the output `.jar` path on success |
 | `b4j_run` | Runs a compiled B4J project with the configured Java (builds first if no jar exists). Returns the PID + startup output for long-running UI/server apps, or the full output for console apps that exit |
-| `b4j_open_ide` | Opens a project in the B4J IDE (`B4J.exe`) for interactive debugging — breakpoints, step-through and variable inspection that the command-line builder cannot provide. Launches the IDE and returns immediately (NEW!)|
+| `b4j_open_ide` | Opens a project in the B4J IDE (`B4J.exe`) for interactive debugging — breakpoints, step-through and variable inspection that the command-line builder cannot provide. Launches the IDE and returns immediately |
+| `b4j_stop` | Stops a running app (launched by `b4j_run`) by PID — kills the process tree and returns its final output |
+| `b4j_tail_log` | Returns captured stdout/stderr (incl. `Log()`) from a running/exited app; `onlyNew=true` returns just the output since the last tail |
+| `b4j_list_processes` | Lists tracked apps launched via `b4j_run` (PID, project, status, start time) |
 | `b4j_get_build_log` | Returns the log from the last build |
 
 ### Project
@@ -46,6 +50,13 @@ Exposes tools for compiling and running B4J projects, opening them in the IDE fo
 |------|-------------|
 | `b4j_read_bas` | Reads a `.bas` source module and returns its content with line numbers |
 | `b4j_edit_bas` | Search-and-replace edit on a `.bas` file. Matches exact text (including indentation), normalises line endings, creates a `.bak` backup. Rejects ambiguous matches unless `replace_all=true` |
+
+### Code Navigation
+
+| Tool | Description |
+|------|-------------|
+| `b4j_outline` | Outlines a module: every `Sub` (with signature), `Type`, and `Process_Globals`/`Globals` variable, each with its line number — understand a module without reading the whole file |
+| `b4j_find_symbol` | Finds a Sub/Type/global across the project (`.b4j` main module + all `.bas` files). Returns definitions and references; matching is case-insensitive like B4J itself |
 
 ### Libraries
 
@@ -131,7 +142,8 @@ Config is stored at `%APPDATA%\mcp-b4j\config.json`. Explicit values set here al
 
 - `b4j_build` invokes `B4JBuilder.exe -Task=Build …`, which is the Release-style compile. There is no debug/bundle/sign mode on the command line (debug runs happen inside the IDE; B4J jars are not APK-signed). The compiled jar lands at `<project>\Objects\<ProjectName>.jar`.
 - `b4j_run` launches `java -jar <jar>` using `javaBin`. UI/JavaFX and Server apps keep running, so the tool returns once it has captured startup output (configurable via `timeoutMs`); the process is left alive. Console apps that exit within the window return their full output and exit code.
-- **Interactive debugging** (breakpoints, step-through, variable inspection, hot code-swap) only exists inside the B4J IDE — it is *not* exposed by `B4JBuilder.exe`. Use `b4j_open_ide` to open the project in `B4J.exe`, then run in debug mode (F5/F8) and set breakpoints there. For an in-chat workflow, `b4j_run` captures `Log()` output to stdout, giving a tight build → run → read-log → edit loop.
+- **Interactive debugging** (breakpoints, step-through, variable inspection, hot code-swap) only exists inside the B4J IDE — it is *not* exposed by `B4JBuilder.exe`. Use `b4j_open_ide` to open the project in `B4J.exe`, then run in debug mode (F5/F8) and set breakpoints there.
+- **In-chat run loop:** for long-running UI/server apps, `b4j_run` returns a PID and leaves the app alive. Use `b4j_tail_log(pid)` to read accumulated `Log()`/stdout output (`onlyNew=true` for just the latest), `b4j_list_processes` to see what's running, and `b4j_stop(pid)` to kill it. Together with `b4j_edit_bas` + `b4j_build` this gives a tight build → run → read-log → edit loop without leaving the assistant.
 
 ---
 
@@ -186,17 +198,20 @@ B4jMcp/
 │   ├── B4jProject.vb       # Project metadata model
 │   └── McpConfig.vb        # Configuration model
 ├── Tools/
-│   ├── BuildTools.vb       # build, run, open IDE, build log
-│   ├── ConfigTools.vb      # get/set configuration
+│   ├── BuildTools.vb       # build, run, open IDE, stop/tail/list processes, build log
+│   ├── ConfigTools.vb      # get/set configuration, doctor (environment diagnostics)
 │   ├── LayoutTools.vb      # read/write/list .bjl layouts
 │   ├── LibraryTools.vb     # list, docs, search libraries
 │   ├── BasTools.vb         # read/edit .bas source modules
+│   ├── NavTools.vb         # outline + find symbol across modules
 │   └── ProjectTools.vb     # project metadata, file listing, context, language gotchas
 └── Utils/
     ├── AppConfig.vb        # Config management + B4J IDE auto-detection
     ├── B4jParser.vb        # .b4j project file parser
+    ├── B4jSymbolParser.vb  # Sub/Type/Global extraction for code navigation
     ├── BalConverter.vb     # Binary .bjl ↔ JSON converter
-    └── CacheManager.vb     # Mtime-based + TTL caching
+    ├── CacheManager.vb     # Mtime-based + TTL caching
+    └── ProcessRegistry.vb  # Tracks launched apps for stop/tail
 ```
 
 ### Tech Stack
