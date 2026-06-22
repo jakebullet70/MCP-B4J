@@ -36,12 +36,6 @@ Prioritized feature backlog. Tier 1 is complete; Tier 2/3 are open.
 
 ## Known follow-ups / tech debt
 
-- **`b4j_outline` / `b4j_find_symbol` ignore `Class_Globals`.** Class modules declare globals in
-  `Class_Globals` (not `Process_Globals`/`Globals`), so those variables aren't extracted. Extend
-  `GlobalsStartRegex` in `B4jSymbolParser` to include `Class_Globals`.
-- **`b4j_find_symbol` finds no definition for class/code-module *types*.** A class module's "type"
-  is its filename, with no in-code `Sub`/`Type` declaration — so e.g. `find_symbol "TitleBarHelper"`
-  returns references but `definitionCount: 0`. Treat a matching module filename as a definition.
 - `b4j_find_symbol` scans all top-level `.bas` files in the project dir (plus the `.b4j`), including
   files **not registered** in the project (verified: surfaced an orphan `TitleBar.bas`). Consider an
   option to restrict to project-registered modules. Subfolder/shared-module folders aren't covered.
@@ -55,3 +49,8 @@ Prioritized feature backlog. Tier 1 is complete; Tier 2/3 are open.
   because they were launched with a bare `java -jar`. `b4j_run` now detects `JavaFX`/`UI` app types
   and adds `--module-path <javaHome>\javafx\lib --add-modules javafx.controls,…`. (Verified against
   the GUIHelpers sample project.)
+- **`b4j_outline` / `b4j_find_symbol` now handle `Class_Globals`.** `GlobalsStartRegex` includes
+  `Class_Globals`, so class-module globals are extracted alongside `Process_Globals`/`Globals`.
+- **`b4j_find_symbol` reports module-name definitions.** A class/code module whose filename matches
+  the query is now returned as a definition (`kind` = `ClassModule` / `Module`), so type names like
+  `TitleBarHelper` resolve instead of returning `definitionCount: 0`.

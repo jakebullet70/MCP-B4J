@@ -50,8 +50,23 @@ Namespace Tools
 
                 For Each f In files
                     Dim moduleName = Path.GetFileNameWithoutExtension(f)
+                    Dim syms = B4jSymbolParser.ParseFile(f)
 
-                    For Each sym In B4jSymbolParser.ParseFile(f)
+                    ' A class/code module's "type" is its filename — there is no in-code declaration,
+                    ' so treat a module whose name matches the query as a definition.
+                    If moduleName.Equals(name, StringComparison.OrdinalIgnoreCase) Then
+                        Dim isClass = syms.Any(Function(s) s.Name.Equals("Class_Globals", StringComparison.OrdinalIgnoreCase))
+                        Dim anchor = syms.FirstOrDefault(Function(s) s.Name.Equals("Class_Globals", StringComparison.OrdinalIgnoreCase) OrElse s.Name.Equals("Process_Globals", StringComparison.OrdinalIgnoreCase))
+                        defs.Add(New With {
+                            .module = moduleName,
+                            .kind = If(isClass, "ClassModule", "Module"),
+                            .signature = $"{moduleName} ({If(isClass, "class", "code")} module)",
+                            .line = If(anchor IsNot Nothing, anchor.Line, 1),
+                            .file = f
+                        })
+                    End If
+
+                    For Each sym In syms
                         If sym.Name.Equals(name, StringComparison.OrdinalIgnoreCase) Then
                             defs.Add(New With {.module = moduleName, .kind = sym.Kind, .signature = sym.Signature, .line = sym.Line, .file = f})
                         End If

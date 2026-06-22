@@ -12,14 +12,14 @@ Namespace Utils
 
     ''' <summary>
     ''' Lightweight structural parser for B4J source (.bas / .b4j). Extracts Sub declarations,
-    ''' Type declarations, and variables declared inside Process_Globals / Globals. B4J has no LSP,
-    ''' so this powers b4j_outline and b4j_find_symbol.
+    ''' Type declarations, and variables declared inside Process_Globals / Class_Globals / Globals.
+    ''' B4J has no LSP, so this powers b4j_outline and b4j_find_symbol.
     ''' </summary>
     Public Class B4jSymbolParser
         Private Shared ReadOnly SubRegex As New Regex("^\s*(?:Public\s+|Private\s+)?Sub\s+(\w+)\s*(\([^)]*\))?", RegexOptions.IgnoreCase)
         Private Shared ReadOnly TypeRegex As New Regex("^\s*Type\s+(\w+)\s*(\(.*\))?", RegexOptions.IgnoreCase)
         Private Shared ReadOnly DeclRegex As New Regex("^\s*(?:Dim|Public|Private)\s+(.+?)\s+As\s+", RegexOptions.IgnoreCase)
-        Private Shared ReadOnly GlobalsStartRegex As New Regex("^\s*Sub\s+(?:Process_Globals|Globals)\b", RegexOptions.IgnoreCase)
+        Private Shared ReadOnly GlobalsStartRegex As New Regex("^\s*Sub\s+(?:Process_Globals|Class_Globals|Globals)\b", RegexOptions.IgnoreCase)
         Private Shared ReadOnly EndSubRegex As New Regex("^\s*End\s+Sub\b", RegexOptions.IgnoreCase)
 
         Public Shared Function ParseFile(path As String) As List(Of B4jSymbol)
