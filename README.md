@@ -38,7 +38,7 @@ Exposes tools for compiling and running B4J projects, opening them in the IDE fo
 
 | Tool | Description |
 |------|-------------|
-| `b4j_read_project` | Reads project metadata: app type, libraries, modules, build configs, main-form size |
+| `b4j_read_project` | Reads project metadata: app type, libraries, modules, build configs, main-form size, `#AdditionalJar`/`#MergeLibraries`/`#PackagerProperty`, and a missing-library check (referenced libs not found on disk) |
 | `b4j_list_project_files` | Lists source modules, layouts, and asset files |
 | `b4j_project_context` | Single-call overview: app info, libraries, modules, layouts, and last build error |
 | `b4j_list_recent_projects` | Lists recently opened projects from the B4J IDE history |
@@ -48,8 +48,10 @@ Exposes tools for compiling and running B4J projects, opening them in the IDE fo
 
 | Tool | Description |
 |------|-------------|
-| `b4j_read_bas` | Reads a `.bas` source module and returns its content with line numbers |
+| `b4j_read_bas` | Reads a `.bas`/`.b4j` source module with line numbers. Optional `offset`/`limit` read just a slice of large modules (pair with `b4j_outline`) |
 | `b4j_edit_bas` | Search-and-replace edit on a `.bas` file. Matches exact text (including indentation), normalises line endings, creates a `.bak` backup. Rejects ambiguous matches unless `replace_all=true` |
+| `b4j_multi_edit_bas` | Applies several search/replace edits to one file **atomically** (all-or-nothing), in order, with a single `.bak`. Edits passed as a JSON array |
+| `b4j_create_module` | Creates a new module `.bas` (class or code) **and registers it** in the `.b4j` (`NumberOfModules`/`Module{N}`). Backs up the project file |
 
 ### Code Navigation
 
@@ -64,7 +66,7 @@ Exposes tools for compiling and running B4J projects, opening them in the IDE fo
 |------|-------------|
 | `b4j_list_libraries` | Lists available B4J libraries — both compiled `.jar`+`.xml` pairs and `.b4xlib` source libraries — with version and source folder |
 | `b4j_get_library_docs` | Returns method/property/event docs. For `.jar` libraries this uses the XML docs; for `.b4xlib` source libraries it lists each module's `Sub` signatures |
-| `b4j_search_library` | Searches compiled (`.jar`+`.xml`) library documentation |
+| `b4j_search_library` | Searches library docs — compiled (`.jar`+`.xml`) methods/properties/events **and** `.b4xlib` source Sub names |
 
 ### Layouts
 

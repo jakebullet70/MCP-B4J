@@ -11,6 +11,8 @@ Namespace Tools
     <McpServerToolType>
     Public Class LibraryTools
 
+        Private Shared ReadOnly SubSignatureRegex As New Regex("^\s*(?:Public\s+|Private\s+)?Sub\s+(\w+)\s*(\(.*?\))?", RegexOptions.IgnoreCase)
+
         <McpServerTool, Description("Lists all available B4J libraries: compiled .jar+.xml pairs and .b4xlib source libraries, from the B4J installation and additional libraries path")>
         Public Shared Function B4jListLibraries(
             <Description("Include built-in libraries from b4jPath. Default true.")> Optional includeBuiltIn As Boolean = True
@@ -99,7 +101,7 @@ Namespace Tools
             End Try
         End Function
 
-        <McpServerTool, Description("Searches compiled library (.jar+.xml) documentation for methods, properties, or events matching a query. Note: .b4xlib source libraries are not indexed here — use b4j_get_library_docs for those.")>
+        <McpServerTool, Description("Searches library documentation for matching methods, properties, events or Subs. Covers compiled (.jar+.xml) libraries and .b4xlib source libraries (matched on Sub name).")>
         Public Shared Function B4jSearchLibrary(
             <Description("Search query (method name, keyword, or description text)")> query As String,
             <Description("Optional: limit search to a specific library name")> Optional libraryName As String = ""
@@ -148,6 +150,41 @@ Namespace Tools
                             Next
                         Catch
                             ' Skip malformed XMLs
+                        End Try
+                    Next
+
+                    ' Source libraries: .b4xlib — index Sub names from each .bas module.
+                    For Each libFile In Directory.GetFiles(searchDir, "*.b4xlib")
+                        Dim libBaseName = Path.GetFileNameWithoutExtension(libFile)
+                        If Not String.IsNullOrEmpty(libraryName) AndAlso
+                           Not libBaseName.Equals(libraryName, StringComparison.OrdinalIgnoreCase) Then
+                            Continue For
+                        End If
+                        Try
+                            Using zip = ZipFile.OpenRead(libFile)
+                                For Each entry In zip.Entries.Where(Function(e) e.FullName.EndsWith(".bas", StringComparison.OrdinalIgnoreCase))
+                                    Dim moduleNm = Path.GetFileNameWithoutExtension(entry.Name)
+                                    Using reader As New StreamReader(entry.Open())
+                                        Dim ln As String
+                                        Do
+                                            ln = reader.ReadLine()
+                                            If ln Is Nothing Then Exit Do
+                                            Dim sm = SubSignatureRegex.Match(ln)
+                                            If sm.Success AndAlso sm.Groups(1).Value.ToLowerInvariant().Contains(queryLower) Then
+                                                matches.Add(New With {
+                                                    .library = libBaseName,
+                                                    .typeName = moduleNm,
+                                                    .kind = "sub",
+                                                    .name = sm.Groups(1).Value,
+                                                    .description = TruncateComment(ln.Trim())
+                                                })
+                                            End If
+                                        Loop
+                                    End Using
+                                Next
+                            End Using
+                        Catch
+                            ' Skip unreadable .b4xlib archives
                         End Try
                     Next
                 Next

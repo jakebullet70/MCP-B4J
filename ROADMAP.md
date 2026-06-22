@@ -16,16 +16,19 @@ Prioritized feature backlog. Tier 1 is complete; Tier 2/3 are open.
   Verify `B4JBuilder.exe`, `B4J.exe`, `java.exe`, libraries folder resolve; report Java version.
   → `Tools/ConfigTools.vb`
 
-## Tier 2 — workflow depth
+## Tier 2 — workflow depth ✅ DONE
 
-- [ ] **Module management (`b4j_create_module`)** — create a `.bas` *and* register it in the
-  `.b4j` (`NumberOfModules` / `Module{N}`). Today you can edit modules but not properly add one.
-- [ ] **Line-range `b4j_read_bas`** — `offset` / `limit` params so large modules don't dump
-  whole-file and burn tokens.
-- [ ] **Multi-edit `b4j_edit_bas`** — apply several search/replace edits atomically with a single backup.
-- [ ] **Index `.b4xlib` in `b4j_search_library`** — search currently skips source libraries.
-- [ ] **Richer project parse** — `#AdditionalJar`, `#PackagerProperty`, `#MergeLibraries`, plus a
-  *missing-library* check (libs referenced but not present on disk).
+- [x] **Module management (`b4j_create_module`)** — creates a `.bas` (class or code) *and* registers it
+  in the `.b4j` (`NumberOfModules` / `Module{N}`), with a project-file backup. → `Tools/BasTools.vb`
+- [x] **Line-range `b4j_read_bas`** — optional `offset` / `limit` params; defaults to whole-file.
+  → `Tools/BasTools.vb`
+- [x] **Multi-edit (`b4j_multi_edit_bas`)** — applies a JSON array of search/replace edits atomically
+  (all-or-nothing) with a single backup. → `Tools/BasTools.vb`
+- [x] **Index `.b4xlib` in `b4j_search_library`** — now also matches Sub names inside `.b4xlib`
+  source libraries. → `Tools/LibraryTools.vb`
+- [x] **Richer project parse** — `#AdditionalJar`, `#PackagerProperty`, `#MergeLibraries` surfaced in
+  `b4j_read_project`, plus a missing-library check (referenced libs not found on disk; no false
+  positives when no library dirs are configured). → `Models/B4jProject.vb`, `Utils/B4jParser.vb`, `Tools/ProjectTools.vb`
 
 ## Tier 3 — polish / future
 

@@ -88,6 +88,14 @@ Namespace Utils
             For Each line In lines
                 Dim trimmed = line.TrimStart()
 
+                ' Build/packaging directives — these may sit outside the Project Attributes region.
+                Dim jm = Regex.Match(line, "#AdditionalJar:\s*(.+)", RegexOptions.IgnoreCase)
+                If jm.Success Then proj.AdditionalJars.Add(jm.Groups(1).Value.Trim()) : Continue For
+                Dim pm = Regex.Match(line, "#PackagerProperty:\s*(.+)", RegexOptions.IgnoreCase)
+                If pm.Success Then proj.PackagerProperties.Add(pm.Groups(1).Value.Trim()) : Continue For
+                Dim mm2 = Regex.Match(line, "#MergeLibraries:\s*(.+)", RegexOptions.IgnoreCase)
+                If mm2.Success Then proj.MergeLibraries = mm2.Groups(1).Value.Trim() : Continue For
+
                 If trimmed.StartsWith("#Region") AndAlso line.Contains("Project Attributes") Then
                     inAttributes = True
                     Continue For

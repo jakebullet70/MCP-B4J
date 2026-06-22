@@ -3,6 +3,7 @@ Imports System.ComponentModel
 Imports System.IO
 Imports Newtonsoft.Json
 Imports B4jMcp.Utils
+Imports B4jMcp.Models
 
 Namespace Tools
     <McpServerToolType>
@@ -18,6 +19,7 @@ Namespace Tools
             End If
             Try
                 Dim proj = B4jParser.Parse(projectPath)
+                Dim missing = MissingLibraries(proj)
                 Return JsonConvert.SerializeObject(New With {
                     .appType = proj.AppType,
                     .appLabel = proj.AppLabel,
@@ -26,6 +28,10 @@ Namespace Tools
                     .mainFormWidth = proj.MainFormWidth,
                     .mainFormHeight = proj.MainFormHeight,
                     .libraries = proj.Libraries,
+                    .missingLibraries = missing,
+                    .additionalJars = proj.AdditionalJars,
+                    .mergeLibraries = proj.MergeLibraries,
+                    .packagerProperties = proj.PackagerProperties,
                     .modules = proj.Modules.Select(Function(m) Path.GetFileName(m)).ToList(),
                     .layouts = proj.Layouts.Select(Function(l) Path.GetFileName(l)).ToList(),
                     .buildConfigs = proj.BuildConfigs
@@ -189,6 +195,34 @@ Namespace Tools
             Catch ex As Exception
                 Return $"Error: {ex.Message}"
             End Try
+        End Function
+
+        ''' <summary>
+        ''' Returns the project's referenced libraries that cannot be located among the installed
+        ''' .xml / .b4xlib files (matched by filename, case-insensitive). Returns an empty list when
+        ''' no library directories are configured, so it never reports false positives.
+        ''' </summary>
+        Private Shared Function MissingLibraries(proj As B4jProject) As List(Of String)
+            If proj.Libraries.Count = 0 Then Return New List(Of String)()
+
+            Dim cfg = AppConfig.Load()
+            Dim dirs As New List(Of String)()
+            If Not String.IsNullOrEmpty(cfg.AdditionalLibrariesPath) AndAlso Directory.Exists(cfg.AdditionalLibrariesPath) Then
+                dirs.Add(cfg.AdditionalLibrariesPath)
+            End If
+            If Not String.IsNullOrEmpty(cfg.B4jPath) Then
+                Dim libDir = Path.Combine(cfg.B4jPath, "Libraries")
+                If Directory.Exists(libDir) Then dirs.Add(libDir)
+            End If
+            If dirs.Count = 0 Then Return New List(Of String)()  ' can't determine — avoid false positives
+
+            Dim available As New HashSet(Of String)(StringComparer.OrdinalIgnoreCase)
+            For Each d In dirs
+                For Each f In Directory.GetFiles(d, "*.xml") : available.Add(Path.GetFileNameWithoutExtension(f)) : Next
+                For Each f In Directory.GetFiles(d, "*.b4xlib") : available.Add(Path.GetFileNameWithoutExtension(f)) : Next
+            Next
+
+            Return proj.Libraries.Where(Function(l) Not available.Contains(l)).ToList()
         End Function
 
     End Class
