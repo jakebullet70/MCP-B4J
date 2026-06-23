@@ -42,6 +42,7 @@ Prioritized feature backlog. Tier 1 is complete; Tier 2/3 are open.
   Windows-only tools, so the server is inherently Windows-only. The earlier OS-aware executable
   resolution was removed as misleading; tool names are hardcoded to `.exe`.
 
+<<<<<<< Updated upstream
 ## Tier 4 — layout authoring ✅ DONE
 
 - [x] **`b4j_add_view`** — inserts a fully-formed view (Label / Button / TextField / CheckBox /
@@ -54,6 +55,18 @@ Prioritized feature backlog. Tier 1 is complete; Tier 2/3 are open.
   drawable; ComboBox missing `editable`; ScrollPane missing `hbar`/`vbar`/`pannable`; control
   views missing base `contextMenu`/`toolTip`/`eventName`; `ControlsHeaders` ↔ view-tree name
   mismatches; non-contiguous child indices. → `Utils/ViewTemplates.vb`
+=======
+## Tier 4 — future ideas (open)
+
+- [ ] **`b4j_screenshot`** — capture a running B4J app's window to a PNG and return the path.
+  *Why:* there is currently no way for an AI client to visually verify GUI changes — e.g. a custom
+  title bar / theme builds and runs clean (logs OK) but the rendering can't be confirmed. This
+  closes that loop (the desktop equivalent of the Android ADB screenshot that was dropped from
+  upstream). *Approach:* OS-level window capture from the .NET server — resolve the target HWND by
+  PID (from the process registry that `b4j_run` already maintains) or window title, then
+  `PrintWindow`/BitBlt to a bitmap and save as PNG. *Caveat:* requires a visible on-screen window
+  (no headless capture); document that it won't work in CI/headless runs.
+>>>>>>> Stashed changes
 
 ## Known follow-ups / tech debt
 
