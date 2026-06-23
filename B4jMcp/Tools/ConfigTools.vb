@@ -14,6 +14,7 @@ Namespace Tools
             Dim cfg = AppConfig.Load()
             Dim sources = AppConfig.GetSources()
             Dim result = New With {
+                .serverVersion = AppInfo.Version,
                 .b4jPath = cfg.B4jPath,
                 .additionalLibrariesPath = cfg.AdditionalLibrariesPath,
                 .projectsRoot = cfg.ProjectsRoot,
@@ -114,6 +115,7 @@ Namespace Tools
 
             Dim allOk = okCount = total
             Return JsonConvert.SerializeObject(New With {
+                .serverVersion = AppInfo.Version,
                 .healthy = allOk,
                 .summary = $"{okCount}/{total} checks passed",
                 .checks = checks,

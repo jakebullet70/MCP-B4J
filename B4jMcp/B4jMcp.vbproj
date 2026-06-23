@@ -1,5 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <!-- Version + auto-incrementing build counter. -->
+  <Import Project="Version.props" />
+
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <RootNamespace>B4jMcp</RootNamespace>

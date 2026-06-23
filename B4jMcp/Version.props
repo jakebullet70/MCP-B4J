@@ -1,0 +1,59 @@
+<Project>
+
+  <!--
+    B4jMcp version.
+
+    Semantic version (Major.Minor.Patch) is owned by humans — bump these by hand
+    for real releases. The 4th component (Build) is an auto-incrementing counter
+    stored in BuildNumber.props; it is bumped automatically on Release builds and
+    on `dotnet publish` (not on plain Debug builds). See the BumpBuildNumber target
+    below. The resulting full version is Major.Minor.Patch.Build, e.g. 1.0.0.42.
+  -->
+  <PropertyGroup>
+    <VersionMajor>1</VersionMajor>
+    <VersionMinor>0</VersionMinor>
+    <VersionPatch>0</VersionPatch>
+  </PropertyGroup>
+
+  <!-- Auto-managed build counter (machine-written; do not edit by hand). -->
+  <Import Project="BuildNumber.props" />
+
+  <PropertyGroup>
+    <Version>$(VersionMajor).$(VersionMinor).$(VersionPatch).$(BuildNumber)</Version>
+    <FileVersion>$(Version)</FileVersion>
+    <InformationalVersion>$(Version)</InformationalVersion>
+    <!-- Keep assembly identity stable so per-build bumps don't churn it. -->
+    <AssemblyVersion>$(VersionMajor).$(VersionMinor).$(VersionPatch).0</AssemblyVersion>
+    <!-- Don't append the git commit hash to InformationalVersion. -->
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+  </PropertyGroup>
+
+  <!-- Bump only on Release builds and on publish, never on Debug/IDE builds. -->
+  <PropertyGroup>
+    <ShouldBumpBuildNumber Condition="'$(ShouldBumpBuildNumber)' == ''">false</ShouldBumpBuildNumber>
+    <ShouldBumpBuildNumber Condition="'$(Configuration)' == 'Release'">true</ShouldBumpBuildNumber>
+    <ShouldBumpBuildNumber Condition="'$(_IsPublishing)' == 'true'">true</ShouldBumpBuildNumber>
+  </PropertyGroup>
+
+  <!--
+    Increment the build counter and bake the new value into THIS build.
+    Runs before the version is written into the assembly, and persists the new
+    number back to BuildNumber.props for the next build.
+  -->
+  <Target Name="BumpBuildNumber"
+          BeforeTargets="GetAssemblyVersion;GenerateAssemblyInfo;CoreGenerateAssemblyInfo"
+          Condition="'$(ShouldBumpBuildNumber)' == 'true'">
+    <PropertyGroup>
+      <BuildNumber>$([MSBuild]::Add($(BuildNumber), 1))</BuildNumber>
+      <Version>$(VersionMajor).$(VersionMinor).$(VersionPatch).$(BuildNumber)</Version>
+      <FileVersion>$(Version)</FileVersion>
+      <InformationalVersion>$(Version)</InformationalVersion>
+    </PropertyGroup>
+    <WriteLinesToFile
+        File="$(MSBuildThisFileDirectory)BuildNumber.props"
+        Overwrite="true"
+        Lines="&lt;Project&gt;&lt;PropertyGroup&gt;&lt;BuildNumber&gt;$(BuildNumber)&lt;/BuildNumber&gt;&lt;/PropertyGroup&gt;&lt;/Project&gt;" />
+    <Message Importance="high" Text="B4jMcp version bumped to $(Version)" />
+  </Target>
+
+</Project>
