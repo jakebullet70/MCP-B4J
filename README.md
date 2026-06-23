@@ -74,7 +74,8 @@ Exposes tools for compiling and running B4J projects, opening them in the IDE fo
 | Tool | Description |
 |------|-------------|
 | `b4j_read_layout` | Converts a binary `.bjl` layout to JSON (LayoutHeader, Variants, Data view-tree) |
-| `b4j_write_layout` | Writes JSON back to `.bjl` (validates structure, creates a `.bak` backup) |
+| `b4j_write_layout` | Writes JSON back to `.bjl` (validates structure, lints views, creates a `.bak` backup) |
+| `b4j_add_view` | Adds a fully-formed view (Label/Button/TextField/CheckBox/ComboBox/ScrollPane/ImageView/Pane) with all required default properties, registers it in `ControlsHeaders`, and backs up the file |
 | `b4j_clone_layout` | Clones an existing `.bjl` to a new file in the same folder, round-tripped through the converter to validate |
 | `b4j_list_layouts` | Lists all `.bjl` files in a project directory |
 
@@ -163,6 +164,15 @@ The JSON has three parts:
 - **`Data`** — the hierarchical view tree and properties. Typed values are wrapped as `{ "ValueType": <code>, "Value": … }` (string, float, color `0xAARRGGBB`, RECT32, CNULL).
 
 **Round-trip safety:** `b4j_write_layout` validates the JSON structure and always writes a `.bak` backup first. Conversion is lossless — verified on real B4J designer layouts (read → write → re-read yields identical JSON). The re-written binary is byte-length-identical to the original; exact bytes may differ only in the internal string-cache ordering and gzip encoding of the designer script, which carry no semantic meaning.
+
+**View linting (beyond the binary round-trip):** a clean read→write round-trip only proves the *binary* is well-formed — it does **not** prove each view has the properties its runtime wrapper / the Abstract Designer require, so a hand-authored view can pass the round-trip yet throw at `LoadLayout` or fail to open in the Designer. `b4j_write_layout` now also lints each view and returns warnings (non-fatal) for the common traps:
+
+- **ImageView** drawable must be a `BitmapDrawable` (a `ColorDrawable` makes the Designer fail with *"Unable to cast ColorDrawable to BitmapDrawable"*).
+- **ComboBox** must have `editable`; **ScrollPane** must have `hbar` / `vbar` / `pannable` — missing them throws an NPE in the wrapper's `build` at `LoadLayout`.
+- Control views must carry the base `contextMenu` / `toolTip` / `eventName`.
+- `ControlsHeaders` ↔ view-tree name consistency, and contiguous child indices (`0..n-1`).
+
+**Authoring views:** prefer `b4j_add_view` over hand-writing view JSON for `b4j_write_layout` — it emits the complete, lint-clean default property set for each supported type (Label, Button, TextField, CheckBox, ComboBox, ScrollPane, ImageView, Pane), so the above traps can't happen.
 
 ---
 

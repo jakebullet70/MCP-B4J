@@ -63,9 +63,105 @@ Namespace Tools
                     converter.ConvertJsonToBalInMemory(json, stream)
                 End Using
                 CacheManager.Invalidate(layoutPath)
-                Return $"OK: backup saved as {layoutPath}.bak"
+
+                Dim warnings = ViewTemplates.ValidateLayout(json)
+                Dim result = $"OK: backup saved as {layoutPath}.bak"
+                If warnings.Count > 0 Then
+                    result &= Environment.NewLine &
+                              "Warnings (the file was written anyway — these survive the binary round-trip but break at LoadLayout/Designer):" &
+                              Environment.NewLine &
+                              String.Join(Environment.NewLine, warnings.Select(Function(w) " - " & w))
+                End If
+                Return result
             Catch ex As Exception
                 Return $"Error writing layout: {ex.Message}"
+            End Try
+        End Function
+
+        <McpServerTool, Description("Adds a fully-formed view to a .bjl layout with all the default properties its runtime wrapper and the Abstract Designer require. Supported types: Label, Button, TextField, CheckBox, ComboBox, ScrollPane, ImageView, Pane. Inserts the view into the parent's child list (keeping indices contiguous), registers it in ControlsHeaders, backs up the file (.bak), and returns any validation warnings. Prefer this over hand-authoring view JSON for b4j_write_layout.")>
+        Public Shared Function B4jAddView(
+            <Description("Full path to the .bjl layout file")> layoutPath As String,
+            <Description("View type: Label, Button, TextField, CheckBox, ComboBox, ScrollPane, ImageView, or Pane")> viewType As String,
+            <Description("View name. Also used as the event name, so it must match the page's Class_Globals field and event subs.")> name As String,
+            <Description("Left position in dip")> left As Integer,
+            <Description("Top position in dip")> top As Integer,
+            <Description("Width in dip")> width As Integer,
+            <Description("Height in dip")> height As Integer,
+            <Description("Optional caption for Label/Button/CheckBox/TextField. Default empty.")> Optional text As String = "",
+            <Description("Optional parent view name. Default 'Main' (the root pane).")> Optional parent As String = "Main"
+        ) As String
+            If Not File.Exists(layoutPath) Then Return $"Error: File not found: {layoutPath}"
+            If Not layoutPath.EndsWith(".bjl", StringComparison.OrdinalIgnoreCase) Then
+                Return "Error: File must have .bjl extension"
+            End If
+            If String.IsNullOrWhiteSpace(name) Then Return "Error: name cannot be empty"
+
+            Dim javaType = ViewTemplates.JavaTypeFor(viewType)
+            If javaType Is Nothing Then
+                Return $"Error: unsupported viewType '{viewType}'. Supported: Label, Button, TextField, CheckBox, ComboBox, ScrollPane, ImageView, Pane."
+            End If
+            If String.IsNullOrWhiteSpace(parent) Then parent = "Main"
+
+            Try
+                Dim converter = New BalConverter(stripNullRect:=False)
+                Dim dir = Path.GetDirectoryName(layoutPath)
+                If String.IsNullOrEmpty(dir) Then dir = "."
+                Dim layout = JObject.Parse(converter.ConvertBalToJson(dir, Path.GetFileName(layoutPath)))
+
+                Dim data = TryCast(layout("Data"), JObject)
+                If data Is Nothing Then Return "Error: layout has no 'Data' root."
+
+                ' Reject a duplicate name anywhere in the tree.
+                If NameExists(data, name) Then Return $"Error: a view named '{name}' already exists in this layout."
+
+                ' Find the parent node (the root pane is named 'Main').
+                Dim parentNode As JObject
+                If String.Equals(If(data("name") IsNot Nothing, data("name").ToString(), ""), parent, StringComparison.OrdinalIgnoreCase) Then
+                    parentNode = data
+                Else
+                    parentNode = FindByName(data, parent)
+                End If
+                If parentNode Is Nothing Then Return $"Error: parent view '{parent}' not found."
+
+                Dim kids = TryCast(parentNode(":kids"), JObject)
+                If kids Is Nothing Then
+                    kids = New JObject()
+                    parentNode(":kids") = kids
+                End If
+
+                Dim view = ViewTemplates.BuildView(viewType, name, parent, left, top, width, height, text)
+                kids(kids.Count.ToString()) = view
+
+                ' Register in ControlsHeaders.
+                Dim lh = TryCast(layout("LayoutHeader"), JObject)
+                If lh Is Nothing Then Return "Error: layout has no 'LayoutHeader'."
+                Dim ch = TryCast(lh("ControlsHeaders"), JArray)
+                If ch Is Nothing Then
+                    ch = New JArray()
+                    lh("ControlsHeaders") = ch
+                End If
+                Dim header As New JObject()
+                header.Add("Name", New JValue(name))
+                header.Add("JavaType", New JValue(javaType))
+                header.Add("DesignerType", New JValue(ViewTemplates.CanonicalDesignerType(viewType)))
+                ch.Add(header)
+
+                ' Backup + write.
+                File.Copy(layoutPath, layoutPath & ".bak", overwrite:=True)
+                Using stream = File.Create(layoutPath)
+                    converter.ConvertJsonToBalInMemory(layout, stream)
+                End Using
+                CacheManager.Invalidate(layoutPath)
+
+                Dim warnings = ViewTemplates.ValidateLayout(layout)
+                Dim result = $"OK: added {ViewTemplates.CanonicalDesignerType(viewType)} '{name}' to {Path.GetFileName(layoutPath)} (backup: .bak)."
+                If warnings.Count > 0 Then
+                    result &= Environment.NewLine & "Warnings:" & Environment.NewLine &
+                              String.Join(Environment.NewLine, warnings.Select(Function(w) " - " & w))
+                End If
+                Return result
+            Catch ex As Exception
+                Return $"Error adding view: {ex.Message}"
             End Try
         End Function
 
@@ -127,6 +223,28 @@ Namespace Tools
             Catch ex As Exception
                 Return $"Error: {ex.Message}"
             End Try
+        End Function
+
+        ' Returns True if any view in the tree (including node itself) is named `name`.
+        Private Shared Function NameExists(node As JObject, name As String) As Boolean
+            Dim nm = If(node("name") IsNot Nothing, node("name").ToString(), Nothing)
+            If nm IsNot Nothing AndAlso String.Equals(nm, name, StringComparison.OrdinalIgnoreCase) Then Return True
+            Return FindByName(node, name) IsNot Nothing
+        End Function
+
+        ' Finds a descendant view by name (recurses into :kids); Nothing if not found.
+        Private Shared Function FindByName(node As JObject, name As String) As JObject
+            Dim kids = TryCast(node(":kids"), JObject)
+            If kids Is Nothing Then Return Nothing
+            For Each p In kids.Properties()
+                Dim view = TryCast(p.Value, JObject)
+                If view Is Nothing Then Continue For
+                Dim nm = If(view("name") IsNot Nothing, view("name").ToString(), Nothing)
+                If nm IsNot Nothing AndAlso String.Equals(nm, name, StringComparison.OrdinalIgnoreCase) Then Return view
+                Dim nested = FindByName(view, name)
+                If nested IsNot Nothing Then Return nested
+            Next
+            Return Nothing
         End Function
 
     End Class
