@@ -42,6 +42,19 @@ Prioritized feature backlog. Tier 1 is complete; Tier 2/3 are open.
   Windows-only tools, so the server is inherently Windows-only. The earlier OS-aware executable
   resolution was removed as misleading; tool names are hardcoded to `.exe`.
 
+## Tier 4 — layout authoring ✅ DONE
+
+- [x] **`b4j_add_view`** — inserts a fully-formed view (Label / Button / TextField / CheckBox /
+  ComboBox / ScrollPane / ImageView / Pane) with the complete default property set its runtime
+  wrapper *and* the Abstract Designer require, registers it in `ControlsHeaders`, keeps child
+  indices contiguous, and backs up the file. → `Utils/ViewTemplates.vb`, `Tools/LayoutTools.vb`
+- [x] **View lint in `b4j_write_layout`** — a clean binary round-trip does not prove a view is
+  loadable. `b4j_write_layout` now returns non-fatal warnings for the traps that pass the
+  round-trip but break at `LoadLayout` / in the Designer: ImageView with a non-`BitmapDrawable`
+  drawable; ComboBox missing `editable`; ScrollPane missing `hbar`/`vbar`/`pannable`; control
+  views missing base `contextMenu`/`toolTip`/`eventName`; `ControlsHeaders` ↔ view-tree name
+  mismatches; non-contiguous child indices. → `Utils/ViewTemplates.vb`
+
 ## Known follow-ups / tech debt
 
 - `b4j_find_symbol` scans all top-level `.bas` files in the project dir (plus the `.b4j`), including
