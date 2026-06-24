@@ -160,6 +160,27 @@ Namespace Tools
                     .description = "In the B4J project file, Build1 (and other build configs) must start with 'Default' as the first token.",
                     .example = "Build1=release,myapp → build fails. Correct: Build1=Default,myapp",
                     .fix = "Ensure Build1=Default,<name> in the .b4j project file."
+                },
+                New With {
+                    .title = "B4XTable uses its own internal in-memory SQLite DB (columns c0, c1, …)",
+                    .severity = "HIGH",
+                    .description = "B4XTable stores displayed data in a private SQLite DB reachable as B4XTable1.sql1 (table 'data'), with columns auto-named c0, c1, c2… in column order, keyed by rowid. This is NOT your app's database.",
+                    .example = "Writing 'UPDATE products SET price=?' against B4XTable1.sql1 fails — the internal column is c2 and the table is 'data', not 'products'.",
+                    .fix = "Keep your app DB and B4XTable.sql1 as two separate stores; address internal columns as c0/c1/… and the table as 'data'; call B4XTable.Refresh after direct edits."
+                },
+                New With {
+                    .title = "B4XTable.SetData is asynchronous — Wait For its completion",
+                    .severity = "HIGH",
+                    .description = "SetData(Data As List) rebuilds the table asynchronously. Touching the table (adding cell views, reading rows) on the next line — before it completes — acts on stale or empty state.",
+                    .example = "B4XTable1.SetData(Data) followed immediately by iterating EditColumn.CellsLayouts finds no rows.",
+                    .fix = "Wait For (B4XTable1.SetData(Data)) Complete (unused As Boolean) before manipulating rows or cells."
+                },
+                New With {
+                    .title = "Custom views in B4XTable cells don't get RowId — derive it",
+                    .severity = "MEDIUM",
+                    .description = "The _CellClicked event gives (ColumnId, RowId), but a button you add into a cell fires its own event with no RowId.",
+                    .example = "An Edit button placed inside a cell has no way to know which row it belongs to.",
+                    .fix = "RowIndex = Column.CellsLayouts.IndexOf(Sender.Parent); RowId = B4XTable1.VisibleRowIds.Get(RowIndex - 1)  ' index 0 is the header."
                 }
             }
             Return JsonConvert.SerializeObject(New With {
