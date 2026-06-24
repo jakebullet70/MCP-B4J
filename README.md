@@ -2,6 +2,9 @@
 
 Bridges [Claude Code](https://claude.ai/claude-code) (and any MCP-compatible client) with the [B4J](https://www.b4x.com/b4j.html) (B4X) ecosystem.
 
+<img width="576" height="384" alt="Copilot_20260624_104824" src="https://github.com/user-attachments/assets/538b2cd0-d6a8-49ae-b8ab-ae94d2386202" />
+
+
 Exposes tools for compiling and running B4J projects, opening them in the IDE for interactive debugging, reading/editing source modules, reading/modifying layouts, and exploring libraries (both compiled `.jar`+`.xml` and `.b4xlib` source libraries) — all without leaving your AI coding assistant.
 
 > ## 🍴 This is a fork
